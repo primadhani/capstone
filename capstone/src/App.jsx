@@ -17,6 +17,12 @@ import ArsipGudang from "./pages/Gudang/ArsipGudang";
 import BuatDokumenGudang from "./pages/Gudang/BuatDokumenGudang";
 import DashboardLayoutGudang from "./components/DashboardLayoutGudang";
 
+/* ================= DIREKSI ================= */
+import DireksiHome from "./pages/Direksi/DireksiHome";
+import ProgresDireksi from "./pages/Direksi/ProgresDireksi";
+import ArsipDireksi from "./pages/Direksi/ArsipDireksi";
+import DashboardLayoutDireksi from "./components/DashboardLayoutDireksi";
+
 /* ================= ADMIN ================= */
 import AdminLogin from "./pages/admin/AdminLogin";
 import DashboardLayout from "./pages/admin/DashboardLayout";
@@ -48,6 +54,13 @@ export default function App() {
           <Route path="home" element={<GudangHome />} />
           <Route path="progres" element={<ProgresGudang />} />
           <Route path="arsip" element={<ArsipGudang />} />
+        </Route>
+
+        {/* ================= DIREKSI ================= */}
+        <Route path="/direksi" element={<DashboardLayoutDireksi />}>
+          <Route path="home" element={<DireksiHome />} /> 
+          <Route path="progres" element={<ProgresDireksi />} />
+          <Route path="arsip" element={<ArsipDireksi />} />
         </Route>
 
         {/* tanpa sidebar */}

@@ -37,6 +37,9 @@ export default function Login() {
     else if (role === "Admin") {
       navigate("/admin/dashboard");
     } 
+    else if (role === "Direksi Pekerjaan") {
+      navigate("/direksi/home");
+    } 
     else {
       alert("Role tidak dikenali!");
     }

@@ -1,10 +1,105 @@
 import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
 
 export default function ProgresVendor() {
   const navigate = useNavigate();
+  const [dokumenList, setDokumenList] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [vendorId, setVendorId] = useState(null);
+
+  // Ambil ID Vendor dari localStorage
+  useEffect(() => {
+    const user = JSON.parse(localStorage.getItem("user"));
+    if (user && (user.role === "Vendor Barang" || user.role === "Vendor Pekerjaan" || user.role === "Vendor")) {
+        setVendorId(user.id);
+    } else {
+        navigate("/"); 
+    }
+  }, [navigate]);
+
+  // Fungsi fetch diganti untuk mengambil data BAPB dan BAPP
+  const fetchDokumen = async (id) => {
+    setLoading(true);
+    try {
+      // 1. Fetch data BAPB
+      const resBAPB = await fetch(`http://localhost/capstone_backend/list_vendor_progres_bapb.php?vendor_id=${id}`);
+      const resultBAPB = await resBAPB.json();
+
+      // 2. Fetch data BAPP
+      const resBAPP = await fetch(`http://localhost/capstone_backend/list_vendor_progres_bapp.php?vendor_id=${id}`);
+      const resultBAPP = await resBAPP.json();
+      
+      let combinedData = [];
+
+      if (resultBAPB.success && Array.isArray(resultBAPB.data)) {
+        combinedData = [...combinedData, ...resultBAPB.data];
+      }
+      if (resultBAPP.success && Array.isArray(resultBAPP.data)) {
+        combinedData = [...combinedData, ...resultBAPP.data];
+      }
+
+      // 3. Gabungkan dan Urutkan berdasarkan tanggal (dibuat_pada)
+      combinedData.sort((a, b) => new Date(b.dibuat_pada) - new Date(a.dibuat_pada));
+
+      setDokumenList(combinedData);
+
+    } catch (error) {
+      alert("Error fetching data: " + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  useEffect(() => {
+    if (vendorId) {
+        fetchDokumen(vendorId);
+    }
+  }, [vendorId]);
+
+
+  // Fungsi helper untuk menampilkan status dan catatan (Disesuaikan untuk BAPP/BAPB)
+  const getStatusDisplay = (item) => { 
+    const status = item.status;
+    // Tentukan catatan penolakan berdasarkan tipe dokumen
+    const catatan = item.type === 'BAPB' ? item.catatan_gudang : item.catatan_direksi;
+    const warna = item.type === 'BAPB' ? 'text-blue-700' : 'text-purple-700';
+
+    if (status === 'Rejected') {
+        return (
+            <>
+                <p className="text-sm text-red-600 font-semibold">Status: Ditolak. Harap Buat Ulang.</p>
+                {catatan && ( 
+                    <p className="text-xs text-red-400 mt-1 italic">Alasan: {catatan}</p> 
+                )}
+            </>
+        );
+    }
+    
+    // Status Pending/Approved
+    const statusText = status === 'Pending' ? 'Menunggu Persetujuan' : 'Disetujui';
+    const statusColor = status === 'Pending' ? 'text-yellow-600' : 'text-green-600';
+    
+    return (
+        <p className={`text-sm ${statusColor} font-semibold`}>
+            Status: {statusText} ({item.type === 'BAPB' ? 'Gudang' : 'Direksi'})
+        </p>
+    );
+  }
+  
+  // Menentukan URL Download berdasarkan tipe dokumen
+  const handleDownload = (item) => {
+    const endpoint = item.type === 'BAPB' 
+        ? "download_bapb_pdf.php" 
+        : "download_bapp_pdf.php";
+
+    window.open(`http://localhost/capstone_backend/${endpoint}?id=${item.id}`, '_blank');
+  };
+
+
+  if (loading) { /* ... (loading state) ... */ }
 
   return (
-    <div>
+    <div className="p-6 w-full">
       {/* Header */}
       <div className="bg-blue-700 h-32 rounded-xl text-white p-6 flex items-center text-xl font-bold">
         Hallo Vendor
@@ -27,16 +122,46 @@ export default function ProgresVendor() {
       </div>
 
       {/* List Dokumen Vendor */}
+      <h2 className="text-lg font-bold mt-6 mb-4">Daftar Dokumen Anda ({dokumenList.length})</h2>
+      
       <div className="mt-6 space-y-4">
-        {[1, 2, 3].map((i) => (
-          <div key={i} className="bg-white p-4 rounded-md shadow flex justify-between">
-            <div>
-              <p className="font-semibold">Dokumen Vendor {i}</p>
-              <p className="text-sm">📎 Dokumen ini dibuat vendor</p>
-            </div>
-            <p className="text-sm text-gray-600">Status: Diproses PIC Gudang</p>
+        {dokumenList.length === 0 ? (
+          <div className="bg-white p-4 rounded-md shadow text-gray-500">
+            Anda belum membuat dokumen.
           </div>
-        ))}
+        ) : (
+            dokumenList.map((item) => (
+            <div key={item.type + item.id} className="bg-white p-4 rounded-md shadow flex justify-between items-center">
+                <div>
+                    <p className="font-semibold">
+                        {item.type}: {item.type === 'BAPB' ? item.judul : item.nama_pekerjaan} (No. {item.nomor})
+                    </p>
+                    {getStatusDisplay(item)} {/* Memanggil fungsi tampilan status */}
+                    <p className="text-xs text-gray-400 mt-1">Diajukan pada: {new Date(item.dibuat_pada).toLocaleDateString()}</p>
+                </div>
+                
+                <div className="flex gap-2">
+                    {item.status === 'Approved' && (
+                        <button
+                            onClick={() => handleDownload(item)}
+                            className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
+                        >
+                            Download PDF
+                        </button>
+                    )}
+                    {item.status === 'Rejected' && (
+                        <button
+                            onClick={() => navigate("/vendor/buat-dokumen")}
+                            className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
+                        >
+                            Buat Ulang
+                        </button>
+                    )}
+                </div>
+
+            </div>
+            ))
+        )}
       </div>
     </div>
   );

@@ -1,6 +1,6 @@
 <?php
 header("Content-Type: application/json");
-include '../config.php';
+include 'config.php';
 
 $result = $conn->query("SELECT * FROM bapb ORDER BY id DESC");
 

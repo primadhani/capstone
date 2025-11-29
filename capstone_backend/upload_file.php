@@ -1,28 +1,46 @@
 <?php
 header("Content-Type: application/json");
-include '../config.php';
+header("Access-Control-Allow-Origin: *");
 
-$bapb_id = $_POST["bapb_id"];
+include 'config.php';
 
-$targetDir = "../uploads/bapb/";
-if (!is_dir($targetDir)) mkdir($targetDir, 0777, true);
+$bapp_id = $_POST["bapp_id"];
 
-$fileName = time() . "_" . basename($_FILES["file"]["name"]);
+// Folder target: satu level di atas capstone_backend/
+$targetDir = "../uploads/bapp/"; 
+if (!is_dir($targetDir)) mkdir($targetDir, 0777, true); // Mencoba membuat folder jika belum ada
+
+// Periksa apakah file diupload
+if (!isset($_FILES["file"]) || $_FILES["file"]["error"] !== UPLOAD_ERR_OK) {
+    echo json_encode(["success" => false, "message" => "Tidak ada file yang diupload atau terjadi kesalahan upload (Error Code: " . $_FILES["file"]["error"] . ")"]);
+    exit;
+}
+
+$originalFileName = basename($_FILES["file"]["name"]);
+$fileExtension = pathinfo($originalFileName, PATHINFO_EXTENSION);
+$fileName = time() . "_" . $bapp_id . "." . $fileExtension;
 $targetPath = $targetDir . $fileName;
 
 if (move_uploaded_file($_FILES["file"]["tmp_name"], $targetPath)) {
 
     $stmt = $conn->prepare("
-        INSERT INTO bapb_files (bapb_id, file_path)
-        VALUES (?, ?)
+        INSERT INTO bapp_files (bapp_id, file_path, file_name)
+        VALUES (?, ?, ?)
     ");
-    $stmt->bind_param("is", $bapb_id, $fileName);
-    $stmt->execute();
+    // Simpan path relatif ke database
+    $dbFilePath = "uploads/bapp/" . $fileName; 
+    $stmt->bind_param("iss", $bapp_id, $dbFilePath, $originalFileName); 
+    
+    if ($stmt->execute()) {
+        echo json_encode([
+            "success" => true,
+            "file_name" => $originalFileName
+        ]);
+    } else {
+        echo json_encode(["success" => false, "message" => "Upload berhasil, tapi gagal mencatat ke database. Error: " . $conn->error]);
+    }
 
-    echo json_encode([
-        "success" => true,
-        "file" => $fileName
-    ]);
 } else {
-    echo json_encode(["success" => false, "message" => "Upload gagal"]);
+    echo json_encode(["success" => false, "message" => "Gagal memindahkan file. Periksa izin tulis folder " . $targetDir]);
 }
+?>

@@ -34,6 +34,10 @@ export default function FormBAPB() {
   };
 
   const addItem = () => {
+    if (!itemForm.nama_barang || !itemForm.qty || !itemForm.satuan) {
+      alert("Nama Barang, Quantity, dan Satuan wajib diisi.");
+      return;
+    }
     setItems([...items, itemForm]);
     setItemForm({
       nama_barang: "",
@@ -51,19 +55,54 @@ export default function FormBAPB() {
 
   // ===================== SUBMIT KE BACKEND =====================
   const submitForm = async () => {
+    if (items.length === 0) {
+      alert("Harap tambahkan minimal satu barang.");
+      return;
+    }
+    
+    // Ambil data user dari localStorage
+    const user = JSON.parse(localStorage.getItem("user"));
+
+    if (!user || user.role !== "Vendor") {
+        alert("Autentikasi gagal. Harap login sebagai Vendor.");
+        return;
+    }
+
     const payload = {
       ...form,
       items,
+      vendor_id: user.id, // Tambahkan vendor_id
+      menyatakan_valid: true, 
     };
 
-    const res = await fetch("http://localhost/api/bapb/create.php", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
+    try {
+        const res = await fetch("http://localhost/capstone_backend/create_bapb.php", { // Ubah endpoint
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+        });
 
-    const data = await res.json();
-    alert(data.message);
+        const data = await res.json();
+        
+        if (data.success) {
+            alert(data.message);
+            // Bersihkan form setelah berhasil
+            setForm({
+              judul: "",
+              nomor: "",
+              tanggal: "",
+              tempat_pemeriksaan: "",
+              pihak_pemeriksa: "",
+              tempat_pengiriman: "",
+              pihak_vendor: "",
+            });
+            setItems([]);
+        } else {
+            alert("Gagal mengajukan dokumen: " + data.message);
+        }
+    } catch (error) {
+        alert("Terjadi kesalahan saat menghubungi server: " + error.message);
+    }
   };
 
   return (
@@ -73,37 +112,37 @@ export default function FormBAPB() {
       <div className="grid gap-4">
         <div>
           <label className="block mb-1 font-semibold">Judul</label>
-          <input name="judul" value={form.judul} onChange={handleChange} type="text" className="w-full border rounded px-3 py-2" />
+          <input name="judul" value={form.judul} onChange={handleChange} type="text" className="w-full border rounded px-3 py-2" required />
         </div>
 
         <div>
           <label className="block mb-1 font-semibold">Nomor</label>
-          <input name="nomor" value={form.nomor} onChange={handleChange} type="text" className="w-full border rounded px-3 py-2" />
+          <input name="nomor" value={form.nomor} onChange={handleChange} type="text" className="w-full border rounded px-3 py-2" required />
         </div>
 
         <div>
           <label className="block mb-1 font-semibold">Tanggal Pemeriksaan</label>
-          <input name="tanggal" value={form.tanggal} onChange={handleChange} type="date" className="w-full border rounded px-3 py-2" />
+          <input name="tanggal" value={form.tanggal} onChange={handleChange} type="date" className="w-full border rounded px-3 py-2" required />
         </div>
 
         <div>
           <label className="block mb-1 font-semibold">Tempat Pemeriksaan</label>
-          <input name="tempat_pemeriksaan" value={form.tempat_pemeriksaan} onChange={handleChange} type="text" className="w-full border rounded px-3 py-2" />
+          <input name="tempat_pemeriksaan" value={form.tempat_pemeriksaan} onChange={handleChange} type="text" className="w-full border rounded px-3 py-2" required />
         </div>
 
         <div>
-          <label className="block mb-1 font-semibold">Pihak Pemeriksa</label>
-          <input name="pihak_pemeriksa" value={form.pihak_pemeriksa} onChange={handleChange} type="text" className="w-full border rounded px-3 py-2" />
+          <label className="block mb-1 font-semibold">Pihak Pemeriksa (Nama PIC Gudang)</label>
+          <input name="pihak_pemeriksa" value={form.pihak_pemeriksa} onChange={handleChange} type="text" className="w-full border rounded px-3 py-2" required />
         </div>
 
         <div>
           <label className="block mb-1 font-semibold">Tempat Pengiriman</label>
-          <input name="tempat_pengiriman" value={form.tempat_pengiriman} onChange={handleChange} type="text" className="w-full border rounded px-3 py-2" />
+          <input name="tempat_pengiriman" value={form.tempat_pengiriman} onChange={handleChange} type="text" className="w-full border rounded px-3 py-2" required />
         </div>
 
         <div>
-          <label className="block mb-1 font-semibold">Pihak Vendor</label>
-          <input name="pihak_vendor" value={form.pihak_vendor} onChange={handleChange} type="text" className="w-full border rounded px-3 py-2" />
+          <label className="block mb-1 font-semibold">Pihak Vendor (Nama Perusahaan Anda)</label>
+          <input name="pihak_vendor" value={form.pihak_vendor} onChange={handleChange} type="text" className="w-full border rounded px-3 py-2" required />
         </div>
       </div>
 
@@ -137,7 +176,7 @@ export default function FormBAPB() {
               <td className="border p-2">{item.satuan}</td>
               <td className="border p-2">{item.keterangan}</td>
               <td className="border p-2 text-center">
-                <button onClick={() => deleteItem(index)}>🗑️</button>
+                <button type="button" onClick={() => deleteItem(index)}>🗑️</button>
               </td>
             </tr>
           ))}
@@ -145,6 +184,7 @@ export default function FormBAPB() {
       </table>
 
       <button
+        type="button"
         onClick={() => setShowModal(true)}
         className="bg-blue-700 text-white px-4 py-2 rounded mb-10"
       >
@@ -152,8 +192,9 @@ export default function FormBAPB() {
       </button>
 
       {/* SUBMIT BUTTON */}
-      <div className="flex justify-between mt-8">
+      <div className="flex justify-start mt-8">
         <button
+          type="button"
           onClick={submitForm}
           className="bg-blue-700 text-white px-6 py-2 rounded"
         >
@@ -180,7 +221,7 @@ export default function FormBAPB() {
             <div className="grid gap-3">
               <div>
                 <label>Nama Barang</label>
-                <input name="nama_barang" value={itemForm.nama_barang} onChange={handleItemChange} type="text" className="w-full border rounded px-3 py-2" />
+                <input name="nama_barang" value={itemForm.nama_barang} onChange={handleItemChange} type="text" className="w-full border rounded px-3 py-2" required />
               </div>
 
               <div>
@@ -190,12 +231,12 @@ export default function FormBAPB() {
 
               <div>
                 <label>Quantity</label>
-                <input name="qty" value={itemForm.qty} onChange={handleItemChange} type="number" className="w-full border rounded px-3 py-2" />
+                <input name="qty" value={itemForm.qty} onChange={handleItemChange} type="number" className="w-full border rounded px-3 py-2" required />
               </div>
 
               <div>
                 <label>Satuan</label>
-                <input name="satuan" value={itemForm.satuan} onChange={handleItemChange} type="text" className="w-full border rounded px-3 py-2" />
+                <input name="satuan" value={itemForm.satuan} onChange={handleItemChange} type="text" className="w-full border rounded px-3 py-2" required />
               </div>
 
               <div>
@@ -206,15 +247,17 @@ export default function FormBAPB() {
 
             <div className="flex justify-between mt-6">
               <button
+                type="button"
                 onClick={() => setShowModal(false)}
-                className="bg-blue-900 text-white px-6 py-2 rounded"
+                className="bg-gray-500 text-white px-6 py-2 rounded"
               >
                 Batal
               </button>
 
               <button
+                type="button"
                 onClick={addItem}
-                className="bg-blue-900 text-white px-6 py-2 rounded"
+                className="bg-blue-700 text-white px-6 py-2 rounded"
               >
                 Tambah ke Daftar
               </button>
